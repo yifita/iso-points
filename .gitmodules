@@ -1,0 +1,8 @@
+[submodule "external/torch-batch-svd"]
+	path = external/torch-batch-svd
+	url = https://github.com/KinglittleQ/torch-batch-svd.git
+    ignore = untracked
+[submodule "external/FRNN"]
+	path = external/FRNN
+	url = https://github.com/lxxue/FRNN.git
+    ignore = untracked

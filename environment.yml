@@ -1,0 +1,28 @@
+name: pytorch3d
+channels:
+  - pytorch
+  - pytorch3d
+  - conda-forge
+  - bottler
+  - defaults
+dependencies:
+  - python=3.8
+  - cudatoolkit=10.2
+  - pytorch::pytorch=1.6.0
+  - pytorch::torchvision
+  - fvcore
+  - jupyter
+  - scikit-image
+  - matplotlib
+  - imageio
+  - pytorch3d::pytorch3d
+  - pip
+  - tensorboard=1.15.0
+  - trimesh
+  - cython
+  - pyyaml
+  - pandas
+  - easydict
+  - nvidiacub
+prefix: /home/ywang/anaconda3/envs/pytorch3d
+

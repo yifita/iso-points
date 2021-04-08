@@ -1,0 +1,29 @@
+Cython==0.29.17
+easydict==1.9
+-e git+https://github.com/lxxue/FRNN.git@eab337feaa61074d63e08af58f83fe87fe87bf3f#egg=frnn
+future @ file:///home/conda/feedstock_root/build_artifacts/future_1602538316091/work
+fvcore @ file:///home/conda/feedstock_root/build_artifacts/fvcore_1604059542311/work
+imageio==2.8.0
+matplotlib==3.2.1
+numpy @ file:///home/conda/feedstock_root/build_artifacts/numpy_1597938342049/work
+pickleshare==0.7.5
+Pillow @ file:///home/conda/feedstock_root/build_artifacts/pillow_1594213113401/work
+plotly==4.7.1
+plyfile==0.7.2
+point-cloud-utils==0.8.0
+prefix-sum==0.0.0
+protobuf==3.13.0
+pymeshlab==0.1.8
+pypng==0.0.20
+pypoisson==0.10
+pytest==6.2.1
+PyYAML==5.3.1
+scikit-image==0.16.2
+tensorboard==1.15.0
+torch==1.6.0
+# Editable install with no version control (torch-batch-svd==0.0.0)
+-e /home/ywang/anaconda3/envs/pytorch3d/lib/python3.8/site-packages/torch_batch_svd-0.0.0-py3.8-linux-x86_64.egg
+torchvision==0.7.0
+tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1596476591553/work
+trimesh==3.6.34
+typing-extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1602702424206/work
