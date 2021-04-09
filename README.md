@@ -69,11 +69,13 @@ python train_mvr.py configs/compressor_uni.yml --exit-after 6000
 python train_mvr.py configs/compressor_uni_lossS.yml --exit-after 6000
 ```
 <img src="images/sampling.png" alt="sampling result" width="760"/>
+
 ### DTU-data
 ```bash
 python train_mvr.py configs/dtu55_iso.yml
 ```
 <img src="images/idr-rabbit.png" alt="dtu mvr result" width="760">
+
 ### implicit surface to noisy point cloud
 ```bash
 python test_dtu_points.py data/DTU_furu/scan122.ply --use_off_normal_loss -o exp/points_3d_outputs/scan122_ours
