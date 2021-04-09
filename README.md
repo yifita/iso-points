@@ -1,5 +1,10 @@
 # Implementation for Iso-Points (CVPR 2021)
-Official code for paper Iso-Points: Optimizing Neural Implicit Surfaces with Hybrid Representations
+
+*Official code for paper Iso-Points: Optimizing Neural Implicit Surfaces with Hybrid Representations*
+
+[paper](https://igl.ethz.ch/projects/iso-points/iso_points-CVPR2021-yifan.pdf) | [supplementary material](https://igl.ethz.ch/projects/iso-points/iso_points-supp-CVPR2021-yifan.pdf) | [project page](https://igl.ethz.ch/projects/iso-points/)
+
+
 
 ## Overview
 <font size="5"> ***Iso-points*** </font> are well-distributed points which lie on the neural iso-surface, they are an explicit form of representation of the implicit surfaces. We propose using iso-points to augment the optimization of implicit neural surfaces.
@@ -46,7 +51,7 @@ cd ../..
 python setup.py develop
 ````
 
-## Demo
+### prepare data
 Download data
 ```bash
 cd data
@@ -80,6 +85,7 @@ python train_mvr.py configs/dtu55_iso.yml
 ```bash
 python test_dtu_points.py data/DTU_furu/scan122.ply --use_off_normal_loss -o exp/points_3d_outputs/scan122_ours
 ```
+
 <img src="images/points.png" width="760">
 
 ## cite
