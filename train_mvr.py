@@ -15,7 +15,6 @@ from DSS import logger_py, set_deterministic_
 
 set_deterministic_()
 
-
 # Arguments
 parser = argparse.ArgumentParser(
     description='Train implicit representations without 3D supervision.'
@@ -85,9 +84,6 @@ if cfg.model.type == 'point':
 else:
     if cfg.renderer.is_neural_texture:
         optimizer = optim.Adam(model.parameters(), lr=lr)
-        # optimizer = optim.Adam([
-        #     {'params': model.decoder.parameters(), 'lr':lr},
-        #     {'params': model.texture.parameters(), 'lr': 0.5*lr}], betas=(0.9, 0.99))
     else:
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.99))
 
@@ -171,19 +167,12 @@ while True:
             logger_py.info('[Epoch %02d] it=%03d, loss=%.4f, time=%.4f'
                            % (epoch_it, it, loss, time.time() - t0b))
             t0b = time.time()
-            if cfg.model.model_kwargs['learn_size']:
-                logger_py.info('point size scaler = %.3g' %
-                               trainer.model.point_size_scaler)
 
         # Debug visualization
         if it > 0 and debug_every > 0 and (it % debug_every) == 0:
             logger_py.info('Visualizing gradients')
             trainer.debug(batch, cameras=cameras, lights=lights, it=it,
                           mesh_gt=train_dataset.get_meshes())
-        # Prune points
-        if it > 0 and (cfg.training.prune_every > 0) and (it % cfg.training.prune_every == 0):
-            trainer.prune(train_loader, cameras=cameras, lights=lights, n_views=16)
-
         # Save checkpoint
         if it > 0 and (checkpoint_every > 0 and (it % checkpoint_every) == 0):
             logger_py.info('Saving checkpoint')
