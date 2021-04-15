@@ -10,7 +10,7 @@ import torch.optim as optim
 from DSS.models import ImplicitModel, PointModel
 from DSS.utils import tolerating_collate
 from common import create_animation
-from im2mesh.checkpoints import CheckpointIO
+from DSS.misc.checkpoints import CheckpointIO
 from DSS import logger_py, set_deterministic_
 
 set_deterministic_()

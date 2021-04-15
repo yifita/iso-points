@@ -73,12 +73,7 @@ class Model(ImplicitModel, PointModel):
                  cameras: Optional[CamerasBase] = None,
                  device: Optional[torch.device] = 'cpu',
                  n_points_per_cloud: Optional[int] = 5000,
-                 exact_gradient: Optional[bool] = True,
-                 approx_grad_step: Optional[float] = 1e-2,
                  points: Optional[torch.Tensor] = None,
-                 learn_size: Optional[bool] = True,
-                 point_scale_range: Union[Tuple, List] = (0.5, 1.5),
-                 uniform_projection: Optional[bool] = True,
                  n_points_per_ray: Optional[int] = 100,
                  max_points_per_pass: Optional[int] = 120000,
                  proj_max_iters: Optional[int] = 10,
@@ -98,20 +93,11 @@ class Model(ImplicitModel, PointModel):
 
         self.max_iso_per_batch = max_iso_per_batch
 
-        self.point_size_scaler = nn.Parameter(
-            torch.tensor(1.0)).requires_grad_(learn_size)
-        assert(len(point_scale_range) == 2 and point_scale_range[1] >= point_scale_range[0]), \
-            "point_scale_range ({}, {}) is not valid".format(
-                point_scale_range[0], point_scale_range[1])
-        self.point_scale_range = point_scale_range
-
         self.hooks = []
         self.device = device
-        self.exact_gradient = exact_gradient
         self.n_points_per_cloud = n_points_per_cloud
         self.n_points_per_ray = n_points_per_ray
         self.max_points_per_pass = max_points_per_pass
-        self.approx_grad_step = approx_grad_step
 
         # sampled iso-surface points in the space
         if points is not None:
@@ -127,8 +113,7 @@ class Model(ImplicitModel, PointModel):
 
         self.projection = UniformProjection(
             max_points_per_pass=max_points_per_pass, proj_max_iters=proj_max_iters,
-            proj_tolerance=proj_tolerance, exact_gradient=exact_gradient,
-            approx_grad_step=approx_grad_step,
+            proj_tolerance=proj_tolerance,
             **kwargs,
         )
 
@@ -409,8 +394,7 @@ class Model(ImplicitModel, PointModel):
         max_iso_per_batch = self.max_iso_per_batch
         if max_iso_per_batch == 0:
             return torch.zeros((1, 0, 3), device=self.device, dtype=torch.float)
-        if max_iso_per_batch < 0:
-            max_iso_per_batch = self._points.num_points_per_cloud()[0].item()
+
         batch_size = cameras.R.shape[0]
         # need normals for visibility check
         if self._points.normals_packed() is None:
@@ -465,10 +449,11 @@ class Model(ImplicitModel, PointModel):
         proj_results = self.projection.project_points(
             pcl_visible, self.decoder, skip_resampling=True, skip_upsampling=(ref_pcl is None), **proj_kwargs)
 
-        iso_pcl = PointClouds3D(list(mask_padded_to_list(proj_results['levelset_points'], proj_results['mask'])))
-        normals = self.get_normals_from_grad(
-            iso_pcl.points_packed(), requires_grad=False)
-        iso_pcl.update_normals_(normals)
+        iso_pcl = PointClouds3D(list(mask_padded_to_list(proj_results['levelset_points'], proj_results['mask'])),
+                                normals=list(mask_padded_to_list(proj_results['levelset_normals'], proj_results['mask'])))
+        # normals = self.get_normals_from_grad(
+        #     iso_pcl.points_packed(), requires_grad=False)
+        # iso_pcl.update_normals_(normals)
         iso_pcl = get_visible_points(
             iso_pcl, cameras, depth_merge_threshold=self.renderer.rasterizer.raster_settings.depth_merging_threshold)
         return iso_pcl
@@ -502,7 +487,6 @@ class Model(ImplicitModel, PointModel):
                 lights=None,
                 project: bool = True,
                 sample_iso_offsurface: bool = False,
-                it: int = None,
                 proj_kwargs: dict = {},
                 **kwargs
                 ):

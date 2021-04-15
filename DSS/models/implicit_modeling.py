@@ -13,8 +13,6 @@ import numpy as np
 from skimage import measure
 from matplotlib import cm
 import matplotlib.colors as mpc
-from im2mesh.common import make_3d_grid
-from im2mesh.utils.libsimplify import simplify_mesh
 from .. import logger_py, get_debugging_mode, get_debugging_tensor
 from . import BaseGenerator, ModelReturns
 from .levelset_sampling import (DirectionalSamplingNetwork, SphereTracing, RayTracing,

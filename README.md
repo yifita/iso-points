@@ -101,8 +101,13 @@ Please cite us if you find the code useful!
 ```
 
 ## Acknowledgement
-We would like to thank Viviane Yang for her help with the point2surf code. This work was supported in
-parts by Apple scholarship, SWISSHEART Failure Network (SHFN), and UKRI Future Leaders Fellowship [grant number MR/T043229/1]
+This work was supported in parts by Apple scholarship, SWISSHEART Failure Network (SHFN), and UKRI Future Leaders Fellowship [grant number MR/T043229/1]
+
+A good portion of this codebase uses or adapts codes from previous works and implementations. We sincerely thank the authors for their effort in making their work accessible.
+Most notably we refer to the following repos
+- Siren: https://github.com/vsitzmann/siren
+- IDR: https://github.com/lioryariv/idr
+- DVR: https://github.com/autonomousvision/differentiable_volumetric_rendering
 
 [IDR]: https://github.com/lioryariv/idr
 [DTU]: http://roboimagedata.compute.dtu.dk/?page_id=36

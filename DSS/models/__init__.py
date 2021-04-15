@@ -25,5 +25,4 @@ ModelReturns = namedtuple(
 
 from .implicit_modeling import Model as ImplicitModel
 from .point_modeling import Model as PointModel
-from .occupancy_modeling import Model as OccupancyModel
 from .combined_modeling import Model as CombinedModel

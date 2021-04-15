@@ -6,12 +6,12 @@ import numpy as np
 from matplotlib import cm
 import matplotlib.colors as mpc
 import trimesh
-from im2mesh.common import get_tensor_values
-from pypoisson import poisson_reconstruction
+import pymeshlab
 from .. import get_debugging_mode, get_debugging_tensor, logger_py
 from . import BaseGenerator
 from ..core.cloud import PointClouds3D, PointCloudsFilters
 from ..core.texture import LightingTexture
+from ..utils import get_tensor_values
 from ..utils.mathHelper import vectors_to_angles
 
 
@@ -276,11 +276,13 @@ class Generator(BaseGenerator):
         # logger_py.info('Running poisson reconstruction')
         meshes = []
         for b in range(len(points)):
-            faces, vertices = poisson_reconstruction(
-                points[b][:, :3].detach().cpu().numpy(),
-                normals[b][:, :3].detach().cpu().numpy(), depth=10)
+            ms = pymeshlab.MeshSet()
+            mesh = ms.Mesh(vertex_matrix=points[b].detach().cpu().numpy(),v_normals_matrix=normals[b].detach().cpu().numpy())
+            ms.add_mesh(mesh)
+            ms.surface_reconstruction_screened_poisson()
+            reconst = ms.current_mesh()
             mesh = trimesh.Trimesh(
-                vertices=vertices, faces=faces, process=False)
+                vertices=reconst.vertex_matrix(), faces=reconst.face_matrix(), process=False)
             meshes.append(mesh)
 
         return meshes

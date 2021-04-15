@@ -2,22 +2,6 @@
 import logging
 import sys
 
-
-def color_cheat_sheet():
-    # This doesn't work very good in IDEs python consoles.
-    terse = "-t" in sys.argv[1:] or "--terse" in sys.argv[1:]
-    write = sys.stdout.write
-    for i in range(2 if terse else 10):
-        for j in range(30, 38):
-            for k in range(40, 48):
-                if terse:
-                    write("\33[%d;%d;%dm%d;%d;%d\33[m " % (i, j, k, i, j, k))
-                else:
-                    write("%d;%d;%d: \33[%d;%d;%dm Hello, World! \33[m \n" %
-                          (i, j, k, i, j, k,))
-            write("\n")
-
-
 class _CustomFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors"""
 

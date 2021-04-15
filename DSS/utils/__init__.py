@@ -263,6 +263,65 @@ def make_image_grid(img_res, ndc=True):
     return torch.tensor(im_grid)
 
 
+def sample_patch_points(batch_size, n_points, patch_size=1,
+                        image_resolution=(128, 128), continuous=True):
+    ''' Returns sampled points in the range [-1, 1].
+
+    Args:
+        batch_size (int): required batch size
+        n_points (int): number of points to sample
+        patch_size (int): size of patch; if > 1, patches of size patch_size
+            are sampled instead of individual points
+        image_resolution (tuple): image resolution (required for calculating
+            the pixel distances) (H, W)
+        continuous (bool): whether to sample continuously or only on pixel
+            locations
+    '''
+    assert(patch_size > 0)
+    # Calculate step size for [-1, 1] that is equivalent to a pixel in
+    # original resolution
+    h_step = 1. / image_resolution[0]
+    w_step = 1. / image_resolution[1]
+    # Get number of patches
+    patch_size_squared = patch_size ** 2
+    n_patches = int(n_points / patch_size_squared)
+    if continuous:
+        p = torch.rand(batch_size, n_patches, 2)  # [0, 1]
+    else:
+        px = torch.randint(0, image_resolution[1], size=(
+            batch_size, n_patches, 1)).float() / (image_resolution[1] - 1)
+        py = torch.randint(0, image_resolution[0], size=(
+            batch_size, n_patches, 1)).float() / (image_resolution[0] - 1)
+        p = torch.cat([px, py], dim=-1)
+    # Scale p to [0, (1 - (patch_size - 1) * step) ]
+    p[:, :, 0] *= 1 - (patch_size - 1) * w_step
+    p[:, :, 1] *= 1 - (patch_size - 1) * h_step
+
+    # Add points
+    patch_arange = torch.arange(patch_size)
+    x_offset, y_offset = torch.meshgrid(patch_arange, patch_arange)
+    patch_offsets = torch.stack(
+        [x_offset.reshape(-1), y_offset.reshape(-1)],
+        dim=1).view(1, 1, -1, 2).repeat(batch_size, n_patches, 1, 1).float()
+
+    patch_offsets[:, :, :, 0] *= w_step
+    patch_offsets[:, :, :, 1] *= h_step
+
+    # Add patch_offsets to points
+    p = p.view(batch_size, n_patches, 1, 2) + patch_offsets
+
+    # Scale to [-1, x]
+    p = p * 2 - 1
+
+    p = p.view(batch_size, -1, 2)
+
+    amax, amin = p.max(), p.min()
+    assert(amax <= 1. and amin >= -1.)
+
+    return p
+
+
+
 def get_tensor_values(tensor: torch.Tensor, p: torch.Tensor, grid_sample=True, mode='bilinear',
                       with_mask=False, squeeze_channel_dim=False):
     '''

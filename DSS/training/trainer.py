@@ -14,8 +14,6 @@ import torch.autograd as autograd
 from torch.utils.tensorboard import SummaryWriter
 import plotly.graph_objs as go
 from pytorch3d.ops import (knn_points, knn_gather)
-from im2mesh.common import check_weights, sample_patch_points, arange_pixels
-from im2mesh.eval import MeshEvaluator
 from ..core.cloud import PointClouds3D
 from ..utils.mathHelper import (
     decompose_to_R_and_t, estimate_pointcloud_local_coord_frames, eps_denom)
@@ -26,9 +24,11 @@ from ..models import CombinedModel
 from .. import get_debugging_mode, set_debugging_mode_, get_debugging_tensor, logger_py
 from ..misc import Thread
 from ..misc.visualize import plot_2D_quiver, plot_3D_quiver
-from ..utils import slice_dict
+from ..utils import slice_dict, scaler_to_color, check_weights, arange_pixels, sample_patch_points
+from ..utils.io import save_ply
 from ..utils.point_processing import farthest_sampling
 from ..models.levelset_sampling import sample_uniform_iso_points
+from pytorch3d.loss import chamfer_distance
 
 
 class BaseTrainer(object):
@@ -192,8 +192,6 @@ class Trainer(BaseTrainer):
         self.l2_loss = L2Loss(reduction=self.reduction_method)
         self.sdf_loss = SDF2DLoss(reduction=self.reduction_method)
 
-        self.evaluator = MeshEvaluator(n_points=50000)
-
     def _query_mesh(self):
         """
         Generate mesh at the current training (it), evaluate
@@ -253,13 +251,11 @@ class Trainer(BaseTrainer):
         pointcloud_tgt = val_dataloader.dataset.get_pointclouds(
             num_points=self.n_eval_points)
 
-        # create mesh using generator
-        mesh = self.generator.generate_mesh(
-            {}, with_colors=False, with_normals=False)
-
-        # evaluate in another thread
-        eval_dict_mesh = self.evaluator.eval_mesh(
-            mesh, pointcloud_tgt.points_packed().numpy(), pointcloud_tgt.normals_packed().numpy())
+        mesh = self.generator.generate_mesh({}, with_colors=False, with_normals=False)
+        points_pred = trimesh.sample.sample_surface_even(mesh, pointcloud_tgt.points_packed().shape[0])
+        chamfer_dist = chamfer_distance(pointcloud_tgt.points_padded(), torch.from_numpy(points_pred).view(1,-1,3).to(device=pointcloud_tgt.points_padded().device, dtype=torch.float32)
+                        )
+        eval_dict_mesh = {'chamfer': chamfer_dist.item()}
 
         # save to "val" dict
         t1 = time.time()
@@ -328,15 +324,12 @@ class Trainer(BaseTrainer):
                 refresh_per_point_metric = is_new or (self.refresh_metric_every > 0) and \
                     ((it - 1) % self.refresh_metric_every == 0)
                 self.model.eval()
-                self.ref_pcl = self.ref_per_point_metric(
-                    ref_pcl=self.ref_pcl, refresh=refresh_per_point_metric, mode=self.cfg['ref_metric'])
                 if refresh_per_point_metric:
-                    from ..utils import scaler_to_color
+                    self.ref_pcl = self.ref_per_point_metric(mode=self.cfg['ref_metric'])
                     colors = scaler_to_color(
                         self.ref_pcl.features_packed().cpu().numpy().reshape(-1))
-                    trimesh.Trimesh(self.ref_pcl.points_packed().cpu().numpy(), vertex_normals=self.ref_pcl.normals_packed().cpu().numpy(),
-                                    vertex_colors=colors, process=False).export(os.path.join(self.vis_dir, '%010d_refpcl.ply' % it),
-                                                                                vertex_normal=True)
+                    save_ply(os.path.join(self.vis_dir, '%010d_refpcl.ply' % it), self.ref_pcl.points_packed().cpu().numpy(),
+                             colors=colors, normals=self.ref_pcl.normals_packed().cpu().numpy())
 
         data = self.process_data_dict(data, cameras, lights=lights)
         self.model.train()
@@ -513,7 +506,7 @@ class Trainer(BaseTrainer):
 
         return loss if eval_mode else loss['loss']
 
-    def ref_per_point_metric(self, ref_pcl: 'PointClouds3D' = None, refresh=False, mode='curvature'):
+    def ref_per_point_metric(self, ref_pcl: PointClouds3D = None, mode='curvature'):
         """
         Computes the metric used for sampling or weighting, e.g. curvature / loss,
         and update to pcl's features
@@ -521,11 +514,8 @@ class Trainer(BaseTrainer):
         a local neighborhood of 12 points,
         When mode == 'loss', average the per point per view RGB loss over the entire training images
         """
-        if ref_pcl is None or refresh:
+        if ref_pcl is None:
             ref_pcl = self.model._points
-
-        if not refresh and ref_pcl.features_packed() is not None:
-            return ref_pcl
 
         if (n_points:=ref_pcl.points_packed().shape[0]) > 5000:
             ref_pcl = farthest_sampling(ref_pcl, 5000/n_points)
@@ -536,6 +526,12 @@ class Trainer(BaseTrainer):
 
                 cameras = self.val_loader.dataset.get_cameras()
                 lights = self.val_loader.dataset.get_lights()
+
+                # project all init_points to the surface
+                proj_result = self.model.projection.project_points(ref_pcl,
+                    self.model.decoder, skip_resampling=False, skip_upsampling=False, sample_iters=2)
+                ref_pcl = PointClouds3D(proj_result['levelset_points'][proj_result['mask']].view(1,-1,3),
+                                                   normals=proj_result['levelset_normals'][proj_result['mask']].view(1,-1,3))
                 num_points2 = ref_pcl.num_points_per_cloud()
                 logger_py.info('[Per Point Loss Metric] evaluating ref point cloud ({}) on all training images'.format(
                     num_points2.item()))
@@ -543,14 +539,19 @@ class Trainer(BaseTrainer):
                 from ..utils.mathHelper import RunningStat
                 runStat = RunningStat(num_points2.item(),
                                       device=ref_pcl.device)
-                # per_point_count = torch.zeros_like(per_point_metric)
+
+                # set max_iso_per_batch to -1
+                max_iso_per_batch = self.model.max_iso_per_batch
+                self.model.max_iso_per_batch = -1
                 # If loss is used, transfer the computed loss in the current point cloud to the reference point cloud
                 for batch in tqdm(self.val_loader):
                     data = self.process_data_dict(
                         batch, cameras=cameras, lights=lights)
                     mask_img, img, cameras, lights = data['mask_img'], data['img'], data['camera'], data['light']
+                    # set proj_max_iters to 0 because we already projected the points before hand
                     model_outputs = self.model(mask_img, img, cameras, mask_gt=None, pixels=None, inputs=None, lights=lights,
-                                               it=0, project=True, sample_iso_offsurface=False, render_pts=False)
+                                               project=True, sample_iso_offsurface=False,
+                                               )
 
                     point_clouds = model_outputs['iso_pcl']
                     pixel_pred = model_outputs['iso_pixel']
@@ -578,6 +579,7 @@ class Trainer(BaseTrainer):
                 logger_py.debug('[Per Point Loss Metric] ref point cloud metric min {} max {} median {}'.format(
                     per_point_metric.min(), per_point_metric.max(), per_point_metric.median()))
 
+                self.model.max_iso_per_batch = max_iso_per_batch
             # or curvature is used
             elif mode == 'curvature':
                 curvatures, _ = estimate_pointcloud_local_coord_frames(ref_pcl, neighborhood_size=12,

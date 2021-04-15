@@ -222,13 +222,15 @@ class UniformProjection(LevelSetProjection):
             cloud_to_packed_first_idx = cloud_to_packed_first_idx.cumsum(0)
             child_pts = packed_to_padded(
                 child_pts, cloud_to_packed_first_idx[:-1], child_per_batch.max().item())
-            points = torch.cat((points, child_pts), dim=1)
-            num_points = num_points + child_per_batch
 
         except Exception as e:
             logger_py.error("Error occurred during insertion {}".format(e))
-
-        return points, num_points, child_pts, child_per_batch
+            child_pts = points.new_zeros((batch_size, 0, 3))
+            child_per_batch = num_points.new_zeros((batch_size,))
+        finally:
+            points = torch.cat((points, child_pts), dim=1)
+            num_points = num_points + child_per_batch
+            return points, num_points, child_pts, child_per_batch
 
     def upsample(self, points, n_points, model, num_points=None, **forward_kwargs):
         points, num_points = upsample(points, n_points, num_points=num_points, neighborhood_size=31)
