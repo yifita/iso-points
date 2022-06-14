@@ -11,7 +11,7 @@ from collections import defaultdict
 import pandas as pd
 import numpy as np
 import config
-from im2mesh.checkpoints import CheckpointIO
+from DSS.misc.checkpoints import CheckpointIO
 import imageio
 import plotly.graph_objs as go
 from DSS import logger_py
